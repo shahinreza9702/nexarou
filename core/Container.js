@@ -4,35 +4,114 @@ export class Container {
         this.instances = new Map();
     }
 
-    bind(name, factory) {
-        this.bindings.set(name, factory);
+    bind(token, value) {
+        this.bindings.set(token, {
+            value,
+            singleton: false
+        });
 
         return this;
     }
 
-    singleton(name, factory) {
-        this.bindings.set(name, factory);
+    singleton(token, value) {
+        this.bindings.set(token, {
+            value,
+            singleton: true
+        });
 
         return this;
     }
 
-    make(name) {
-        if (this.instances.has(name)) {
-            return this.instances.get(name);
+    make(token) {
+        // Singleton instance আগে থেকেই আছে?
+        if (this.instances.has(token)) {
+            return this.instances.get(token);
         }
 
-        const factory = this.bindings.get(name);
+        // Registered binding আছে?
+        if (this.bindings.has(token)) {
+            const binding = this.bindings.get(token);
 
-        if (!factory) {
-            throw new Error(
-                `Service "${name}" is not registered.`
+            const instance =
+                this.resolveValue(binding.value);
+
+            if (binding.singleton) {
+                this.instances.set(
+                    token,
+                    instance
+                );
+            }
+
+            return instance;
+        }
+
+        // সরাসরি class দিলে instantiate করার চেষ্টা
+        if (typeof token === "function") {
+            return this.build(token);
+        }
+
+        throw new Error(
+            `Service "${String(token)}" is not registered.`
+        );
+    }
+
+    resolveValue(value) {
+        if (typeof value === "function") {
+            return this.build(value);
+        }
+
+        return value;
+    }
+
+    build(Class) {
+        const dependencies =
+            this.getDependencies(Class);
+
+        const resolvedDependencies =
+            dependencies.map(
+                dependency =>
+                    this.make(dependency)
             );
+
+        return new Class(
+            ...resolvedDependencies
+        );
+    }
+
+    getDependencies(Class) {
+        const constructor =
+            Class.toString();
+
+        const match =
+            constructor.match(
+                /constructor\s*\(([^)]*)\)/
+            );
+
+        if (!match) {
+            return [];
         }
 
-        const instance = factory(this);
+        const parameters =
+            match[1]
+                .split(",")
+                .map(param =>
+                    param.trim()
+                )
+                .filter(Boolean);
 
-        this.instances.set(name, instance);
+        return parameters.map(
+            name => {
+                const dependency =
+                    globalThis[name];
 
-        return instance;
+                if (!dependency) {
+                    throw new Error(
+                        `Cannot resolve dependency "${name}".`
+                    );
+                }
+
+                return dependency;
+            }
+        );
     }
 }
