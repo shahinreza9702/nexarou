@@ -1,34 +1,22 @@
 export class UserController {
 
-    static async index(req, res) {
-        res.json([
-            {
-                id: 1,
-                name: "Rahim"
-            },
-            {
-                id: 2,
-                name: "Karim"
-            }
-        ]);
+    constructor(userService) {
+        this.userService = userService;
     }
 
-    static async show(req, res) {
-        const id = req.params.id;
+    async index(req, res) {
+        const users =
+            this.userService.getUsers();
 
-        res.json({
-            id,
-            name: "Rahim"
-        });
+        res.json(users);
     }
 
-     static async store(req, res) {
+    async show(req, res) {
+        const user =
+            this.userService.getUser(
+                req.params.id
+            );
 
-        console.log(req.body);
-
-        res.status(201).json({
-            message: "User created",
-            data: req.body
-        });
+        res.json(user);
     }
 }

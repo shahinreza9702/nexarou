@@ -1,12 +1,17 @@
 import http from "node:http";
+
 import { Request } from "./Request.js";
 import { Response } from "./Response.js";
 import { Middleware } from "./Middleware.js";
+import { Container } from "./Container.js";
 
 export class Application {
     constructor(router) {
         this.router = router;
         this.server = null;
+
+        this.container = new Container();
+
         this.middlewares = [];
     }
 
@@ -16,6 +21,28 @@ export class Application {
         );
 
         return this;
+    }
+
+    bind(name, factory) {
+        this.container.bind(
+            name,
+            factory
+        );
+
+        return this;
+    }
+
+    singleton(name, factory) {
+        this.container.singleton(
+            name,
+            factory
+        );
+
+        return this;
+    }
+
+    make(name) {
+        return this.container.make(name);
     }
 
     listen(port = 3000) {
@@ -61,17 +88,17 @@ export class Application {
                     console.error(error);
 
                     if (!res.headersSent) {
-                        res.writeHead(500, {
-                            "Content-Type":
-                                "application/json"
-                        });
-
-                        res.end(
-                            JSON.stringify({
-                                message:
-                                    "Internal Server Error"
+                        res
+                            .writeHead(500, {
+                                "Content-Type":
+                                    "application/json"
                             })
-                        );
+                            .end(
+                                JSON.stringify({
+                                    message:
+                                        "Internal Server Error"
+                                })
+                            );
                     }
                 }
             }
