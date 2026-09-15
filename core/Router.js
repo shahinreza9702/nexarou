@@ -31,32 +31,40 @@ export class Router {
     }
 
     addRoute(method, path, handlers) {
-        const group = this.groupStack[
+
+        const group =
+            this.groupStack[
             this.groupStack.length - 1
-        ];
+            ];
 
         const fullPath =
             group.prefix + path;
 
-        const middleware = [
+        const routeMiddlewares = [
             ...group.middleware,
-            ...handlers
+            ...handlers.slice(0, -1)
         ];
+
+        const handler =
+            handlers[handlers.length - 1];
 
         this.routes.push({
             method,
             path: fullPath,
-            handlers: middleware,
-            segments: this.parsePath(fullPath)
+            middlewares: routeMiddlewares,
+            handler,
+            segments:
+                this.parsePath(fullPath)
         });
 
         return this;
     }
 
+
     group(options, callback) {
         const parent =
             this.groupStack[
-                this.groupStack.length - 1
+            this.groupStack.length - 1
             ];
 
         const prefix =

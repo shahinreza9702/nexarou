@@ -9,24 +9,18 @@ const router = new Router();
 const app = new Application(router);
 
 app.singleton(
-    "UserService",
-    () => new UserService()
+    UserService,
+    UserService
 );
-
-const userService =
-    app.make("UserService");
-
-const userController =
-    new UserController(userService);
 
 router.get(
     "/users",
-    userController.index.bind(userController)
+    [UserController, "index"]
 );
 
 router.get(
     "/users/:id",
-    userController.show.bind(userController)
+    [UserController, "show"]
 );
 
 app.listen(3000);

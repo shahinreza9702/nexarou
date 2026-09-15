@@ -4,13 +4,23 @@ import { Request } from "./Request.js";
 import { Response } from "./Response.js";
 import { Middleware } from "./Middleware.js";
 import { Container } from "./Container.js";
+import { ControllerResolver } from "./ControllerResolver.js";
+import { ValidationException } from "./ValidationException.js";
+
 
 export class Application {
+
     constructor(router) {
         this.router = router;
         this.server = null;
 
-        this.container = new Container();
+        this.container =
+            new Container();
+
+        this.controllerResolver =
+            new ControllerResolver(
+                this.container
+            );
 
         this.middlewares = [];
     }
@@ -23,91 +33,118 @@ export class Application {
         return this;
     }
 
-    bind(name, factory) {
+    bind(token, value) {
         this.container.bind(
-            name,
-            factory
+            token,
+            value
         );
 
         return this;
     }
 
-    singleton(name, factory) {
+    singleton(token, value) {
         this.container.singleton(
-            name,
-            factory
+            token,
+            value
         );
 
         return this;
     }
 
-    make(name) {
-        return this.container.make(name);
+    make(token) {
+        return this.container.make(token);
     }
 
     listen(port = 3000) {
-        this.server = http.createServer(
-            async (req, res) => {
-                try {
-                    const request =
-                        new Request(req);
 
-                    const response =
-                        new Response(res);
+        this.server =
+            http.createServer(
+                async (req, res) => {
 
-                    const route =
-                        this.router.resolve(
-                            request.method,
-                            request.url
+                    try {
+
+                        const request =
+                            new Request(req);
+
+                        const response =
+                            new Response(res);
+
+                        const route =
+                            this.router.resolve(
+                                request.method,
+                                request.url
+                            );
+
+                        if (!route) {
+                            return response
+                                .status(404)
+                                .send(
+                                    "404 Not Found"
+                                );
+                        }
+
+                        request.setParams(
+                            route.params
                         );
 
-                    if (!route) {
-                        return response
-                            .status(404)
-                            .send("404 Not Found");
-                    }
+                        request.parseQuery();
 
-                    request.setParams(
-                        route.params
-                    );
+                        await request.parseBody();
 
-                    await request.parseBody();
+                        const handler =
+                            this.controllerResolver
+                                .resolve(
+                                    route.handler
+                                );
 
-                    const middlewareStack = [
-                        ...this.middlewares,
-                        ...route.handlers
-                    ];
+                        const middlewareStack = [
+                            ...this.middlewares,
+                            ...route.middlewares,
+                            handler
+                        ];
 
-                    await Middleware.run(
-                        middlewareStack,
-                        request,
-                        response
-                    );
+                        await Middleware.run(
+                            middlewareStack,
+                            request,
+                            response
+                        );
 
-                } catch (error) {
-                    console.error(error);
+                    } catch (error) {
 
-                    if (!res.headersSent) {
-                        res
-                            .writeHead(500, {
-                                "Content-Type":
-                                    "application/json"
-                            })
-                            .end(
-                                JSON.stringify({
+                        console.error(error);
+
+                        if (
+                            error instanceof ValidationException
+                        ) {
+                            return response
+                                .status(422)
+                                .json({
+                                    message:
+                                        "Validation failed",
+                                    errors: error.errors
+                                });
+                        }
+
+                        if (!res.headersSent) {
+                            response
+                                .status(500)
+                                .json({
                                     message:
                                         "Internal Server Error"
-                                })
-                            );
+                                });
+                        }
                     }
+
                 }
+            );
+
+        this.server.listen(
+            port,
+            () => {
+                console.log(
+                    `Nexarou running on http://localhost:${port}`
+                );
             }
         );
-
-        this.server.listen(port, () => {
-            console.log(
-                `Nexarou running on http://localhost:${port}`
-            );
-        });
     }
 }

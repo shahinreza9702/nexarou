@@ -4,19 +4,22 @@ export class UserController {
         this.userService = userService;
     }
 
-    async index(req, res) {
-        const users =
-            this.userService.getUsers();
+    async store(req, res) {
 
-        res.json(users);
-    }
+        const data = await req.validate({
+            name: "required|string|min:3",
+            email: "required|email",
+            age: "required|integer|min:18"
+        });
 
-    async show(req, res) {
         const user =
-            this.userService.getUser(
-                req.params.id
-            );
+            this.userService.create(data);
 
-        res.json(user);
+        return res
+            .status(201)
+            .json({
+                message: "User created",
+                user
+            });
     }
 }
