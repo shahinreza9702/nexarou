@@ -1,0 +1,9 @@
+{
+  "name": "nexarou",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "dev": "node app.js"
+  }
+}
